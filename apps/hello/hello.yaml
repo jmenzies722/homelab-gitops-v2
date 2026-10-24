@@ -1,0 +1,58 @@
+# Sample app: 2 pods that reply with their own name, a Service in front,
+# and an Ingress rule telling Traefik to send "/" to it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hello
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: hello
+spec:
+  replicas: 2                       # the Deployment keeps exactly 2 running
+  selector:
+    matchLabels: { app: hello }
+  template:
+    metadata:
+      labels: { app: hello }        # the Service finds pods by this label
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami:v1.11   # multi-arch, runs natively on arm64
+          ports:
+            - containerPort: 80
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits:   { memory: 32Mi }
+          readinessProbe:               # only send traffic once it answers
+            httpGet: { path: /, port: 80 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  namespace: hello
+spec:
+  selector: { app: hello }
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+  namespace: hello
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello
+                port: { number: 80 }
