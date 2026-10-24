@@ -1,0 +1,31 @@
+# metrics-server: serves the Metrics API (metrics.k8s.io) so `kubectl top`
+# and HorizontalPodAutoscalers work. Prometheus is history; this is "right now".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server/
+    chart: metrics-server
+    targetRevision: 3.14.0           # pinned: upgrade by changing this line
+    helm:
+      valuesObject:
+        args:
+          # kind's kubelet certificates aren't signed for the node IPs,
+          # so skip verifying them (fine for a local lab, never in production).
+          - --kubelet-insecure-tls
+        resources:
+          requests: { cpu: 50m, memory: 64Mi }
+          limits: { memory: 128Mi }
+        serviceMonitor:
+          enabled: true              # Prometheus scrapes metrics-server too
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
