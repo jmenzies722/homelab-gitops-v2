@@ -39,6 +39,7 @@ spec:
           alertmanagerSpec:
             resources:
               requests: { cpu: 10m, memory: 32Mi }
+              limits: { memory: 128Mi }
 
         grafana:
           # admin password lives in Secret "grafana-admin", created by hand in the cluster.
@@ -52,9 +53,33 @@ spec:
             ingressClassName: traefik
             hosts: [grafana.localhost]
           persistence: { enabled: false }
+          resources:                    # peak ~800Mi (startup/plugins)
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          sidecar:
+            resources:                  # dashboard/datasource loaders, peak ~80Mi
+              requests: { cpu: 10m, memory: 96Mi }
+              limits: { memory: 192Mi }
+
+        prometheusOperator:
+          resources:                    # peak 53Mi
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 256Mi }
+          prometheusConfigReloader:
+            resources:                  # sidecar in Prometheus & Alertmanager, peak ~28Mi
+              requests: { cpu: 10m, memory: 32Mi }
+              limits: { memory: 64Mi }
+
+        kube-state-metrics:
+          resources:                    # peak 42Mi
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 256Mi }
 
         prometheus-node-exporter:
           hostRootFsMount: { enabled: false }   # OrbStack/kind nodes don't share the root mount
+          resources:                    # peak 17Mi, one per node
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 64Mi }
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
