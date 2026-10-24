@@ -1,0 +1,62 @@
+# Monitoring: kube-prometheus-stack (Prometheus, Alertmanager, Grafana,
+# node-exporter, kube-state-metrics), tuned for a kind cluster on a laptop.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 92.13.1          # pinned: upgrade by changing this line
+    helm:
+      valuesObject:
+        # kind binds these control-plane parts to 127.0.0.1 inside the node,
+        # so Prometheus can't scrape them. Skip them instead of firing false alerts.
+        kubeEtcd: { enabled: false }
+        kubeScheduler: { enabled: false }
+        kubeControllerManager: { enabled: false }
+        kubeProxy: { enabled: false }
+
+        prometheus:
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts: [prometheus.localhost]
+          prometheusSpec:
+            retention: 3d
+            # pick up ServiceMonitors from any app, not just this chart's
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            resources:
+              requests: { cpu: 100m, memory: 400Mi }
+              limits: { memory: 1Gi }
+
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests: { cpu: 10m, memory: 32Mi }
+
+        grafana:
+          # admin password is generated into a Secret in the cluster, never stored in Git
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts: [grafana.localhost]
+          persistence: { enabled: false }
+
+        prometheus-node-exporter:
+          hostRootFsMount: { enabled: false }   # OrbStack/kind nodes don't share the root mount
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true   # the Prometheus CRDs are too big for client-side apply
