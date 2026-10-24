@@ -41,7 +41,12 @@ spec:
               requests: { cpu: 10m, memory: 32Mi }
 
         grafana:
-          # admin password is generated into a Secret in the cluster, never stored in Git
+          # admin password lives in Secret "grafana-admin", created by hand in the cluster.
+          # (Letting the chart generate one makes Argo re-sync forever: new random value each render.)
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
           ingress:
             enabled: true
             ingressClassName: traefik
