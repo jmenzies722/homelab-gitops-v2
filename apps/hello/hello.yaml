@@ -11,7 +11,7 @@ metadata:
   name: hello
   namespace: hello
 spec:
-  replicas: 2                       # the Deployment keeps exactly 2 running
+  replicas: 3                       # the Deployment keeps exactly 2 running
   selector:
     matchLabels: { app: hello }
   template:
